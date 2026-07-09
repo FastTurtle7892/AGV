@@ -1,0 +1,108 @@
+from jetbot import Robot, Camera
+import time
+
+try:
+    from SCSCtrl import TTLServo
+except ImportError:
+    TTLServo = None
+    print("⚠️ SCSCtrl 모듈을 찾을 수 없습니다. 서보 제어가 비활성화됩니다.")
+
+class AGVHardware:
+    def __init__(self):
+        self.robot = Robot()
+        try:
+            self.camera = Camera.instance(width=224, height=224)
+            print("✅ 하드웨어(카메라/모터) 연결 성공")
+        except RuntimeError:
+            print("⚠️ 카메라가 이미 사용 중이거나 연결되지 않았습니다.")
+            self.camera = None
+
+        if TTLServo:
+            self.servo = TTLServo
+        else:
+            self.servo = None
+
+    def get_frame(self):
+        if self.camera:
+            return self.camera.value
+        return None
+
+    def set_camera_resolution(self, width, height):
+        if self.camera is None: return
+        if self.camera.width == width and self.camera.height == height: return
+
+        print(f"🔄 카메라 해상도 변경: {self.camera.width}x{self.camera.height} -> {width}x{height}")
+        self.camera.stop()
+        self.camera.width = width
+        self.camera.height = height
+        self.camera.start()
+        time.sleep(0.5)
+
+    def drive(self, left, right):
+        self.robot.left_motor.value = left
+        self.robot.right_motor.value = right
+
+    def stop(self):
+        """주행만 정지 (카메라는 켜둠 - OCR 등을 위해)"""
+        self.robot.stop()
+        
+    def rotate_camera(self, angle, servo_id):
+        if self.servo:
+            self.servo.servoAngleCtrl(servo_id, angle, 1, 500)
+            time.sleep(1.0)
+
+    # [신규 추가] 프로그램 완전 종료 시 호출
+    def close(self):
+        """모터와 카메라를 모두 확실하게 정지 및 자원 해제"""
+        self.stop() # 모터 정지
+        if self.camera:
+            self.camera.stop()
+            print("📷 카메라 자원 해제 완료")
+            
+    def grab_object(self):
+
+        # GRAB
+        # Position arm down
+        TTLServo.xyInput(68, -148)
+        time.sleep(1)
+        # Close grip
+        TTLServo.servoAngleCtrl(4, 40, -1, 150)
+        time.sleep(5)
+
+        # PLACE IN BASKET
+        # Position arm at back
+    #     TTLServo.servoAngleCtrl(2, 100, -1, 200)
+    #     TTLServo.servoAngleCtrl(3, 100, 1, 200)
+        TTLServo.xyInput(125, 130)
+        time.sleep(5)
+        # Open grib
+#         TTLServo.servoAngleCtrl(4, 100, 1, 150)
+        time.sleep(1)
+        # Position arm at initial position
+        TTLServo.servoAngleCtrl(2, 0, 1, 200)
+        TTLServo.servoAngleCtrl(3, 0, 1, 200)
+        
+        
+        
+    def release_object(self):
+
+        # GRAB
+        # Position arm down
+        TTLServo.xyInput(100, -150)
+        time.sleep(1)
+        # Close grip
+        TTLServo.servoAngleCtrl(4, 100, 1, 150)
+        time.sleep(5)
+
+        # PLACE IN BASKET
+        # Position arm at back
+    #     TTLServo.servoAngleCtrl(2, 100, -1, 200)
+    #     TTLServo.servoAngleCtrl(3, 100, 1, 200)
+        TTLServo.xyInput(125, 130)
+        time.sleep(5)
+        # Open grib
+        TTLServo.servoAngleCtrl(4, 100, 1, 150)
+        time.sleep(1)
+        # Position arm at initial position
+        TTLServo.servoAngleCtrl(2, 0, 1, 200)
+        TTLServo.servoAngleCtrl(3, 0, 1, 200)
